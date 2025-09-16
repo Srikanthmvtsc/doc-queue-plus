@@ -13,12 +13,12 @@ import {
 
 interface Patient {
   name: string;
-  dateOfBirth: string;
+  date_of_birth: string;
   phone: string;
   email?: string;
   address: string;
-  medicalHistory: string;
-  reasonForVisit: string;
+  medical_history: string;
+  reason_for_visit: string;
 }
 
 interface AddPatientDialogProps {
@@ -30,12 +30,12 @@ interface AddPatientDialogProps {
 const AddPatientDialog = ({ open, onOpenChange, onAddPatient }: AddPatientDialogProps) => {
   const [formData, setFormData] = useState<Patient>({
     name: "",
-    dateOfBirth: "",
+    date_of_birth: "",
     phone: "",
     email: "",
     address: "",
-    medicalHistory: "",
-    reasonForVisit: "",
+    medical_history: "",
+    reason_for_visit: "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -43,12 +43,12 @@ const AddPatientDialog = ({ open, onOpenChange, onAddPatient }: AddPatientDialog
     onAddPatient(formData);
     setFormData({
       name: "",
-      dateOfBirth: "",
+      date_of_birth: "",
       phone: "",
       email: "",
       address: "",
-      medicalHistory: "",
-      reasonForVisit: "",
+      medical_history: "",
+      reason_for_visit: "",
     });
     onOpenChange(false);
   };
@@ -85,8 +85,8 @@ const AddPatientDialog = ({ open, onOpenChange, onAddPatient }: AddPatientDialog
               <Input
                 id="dateOfBirth"
                 type="date"
-                value={formData.dateOfBirth}
-                onChange={(e) => handleChange("dateOfBirth", e.target.value)}
+                value={formData.date_of_birth}
+                onChange={(e) => handleChange("date_of_birth", e.target.value)}
                 required
               />
             </div>
@@ -131,8 +131,8 @@ const AddPatientDialog = ({ open, onOpenChange, onAddPatient }: AddPatientDialog
             <Label htmlFor="medicalHistory">Medical History *</Label>
             <Textarea
               id="medicalHistory"
-              value={formData.medicalHistory}
-              onChange={(e) => handleChange("medicalHistory", e.target.value)}
+              value={formData.medical_history}
+              onChange={(e) => handleChange("medical_history", e.target.value)}
               placeholder="Enter relevant medical history, allergies, chronic conditions, etc."
               className="min-h-20"
               required
@@ -143,8 +143,8 @@ const AddPatientDialog = ({ open, onOpenChange, onAddPatient }: AddPatientDialog
             <Label htmlFor="reasonForVisit">Reason for Visit *</Label>
             <Textarea
               id="reasonForVisit"
-              value={formData.reasonForVisit}
-              onChange={(e) => handleChange("reasonForVisit", e.target.value)}
+              value={formData.reason_for_visit}
+              onChange={(e) => handleChange("reason_for_visit", e.target.value)}
               placeholder="Enter the reason for today's visit"
               className="min-h-20"
               required

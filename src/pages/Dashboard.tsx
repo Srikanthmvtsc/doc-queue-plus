@@ -4,29 +4,58 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Users, UserCheck, Clock, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
-
-interface DashboardStats {
-  totalPatientsToday: number;
-  pendingPatients: number;
-  completedToday: number;
-  averageWaitTime: string;
-}
+import { apiService, type DashboardStats } from "@/services/api";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [stats, setStats] = useState<DashboardStats>({
-    totalPatientsToday: 12,
-    pendingPatients: 3,
-    completedToday: 9,
-    averageWaitTime: "15 min",
+    totalPatientsToday: 0,
+    pendingPatients: 0,
+    completedToday: 0,
   });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Check authentication
     if (!localStorage.getItem("isAuthenticated")) {
       navigate("/login");
+      return;
     }
-  }, [navigate]);
+
+    // Fetch dashboard stats
+    const fetchStats = async () => {
+      try {
+        const dashboardStats = await apiService.getDashboardStats();
+        setStats(dashboardStats);
+      } catch (error) {
+        console.error('Failed to fetch dashboard stats:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load dashboard statistics. Make sure the backend server is running.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [navigate, toast]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-foreground mb-2">Loading Dashboard...</h1>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -52,7 +81,7 @@ const Dashboard = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card className="shadow-card gradient-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Patients Today</CardTitle>
@@ -61,7 +90,7 @@ const Dashboard = () => {
             <CardContent>
               <div className="text-2xl font-bold text-primary">{stats.totalPatientsToday}</div>
               <p className="text-xs text-muted-foreground">
-                +2 from yesterday
+                Patients registered today
               </p>
             </CardContent>
           </Card>
@@ -88,19 +117,6 @@ const Dashboard = () => {
               <div className="text-2xl font-bold text-success">{stats.completedToday}</div>
               <p className="text-xs text-muted-foreground">
                 Successfully treated
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-card gradient-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg. Wait Time</CardTitle>
-              <Clock className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">{stats.averageWaitTime}</div>
-              <p className="text-xs text-muted-foreground">
-                Current average
               </p>
             </CardContent>
           </Card>
@@ -143,36 +159,36 @@ const Dashboard = () => {
 
           <Card className="shadow-card">
             <CardHeader>
-              <CardTitle>Today's Schedule</CardTitle>
-              <CardDescription>Recent activity overview</CardDescription>
+              <CardTitle>System Status</CardTitle>
+              <CardDescription>Backend connection and system health</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium">John Smith</p>
-                    <p className="text-sm text-muted-foreground">Regular checkup</p>
+                    <p className="font-medium">Backend API</p>
+                    <p className="text-sm text-muted-foreground">Database connection</p>
                   </div>
                   <span className="text-xs bg-success text-success-foreground px-2 py-1 rounded-full">
-                    Completed
+                    Connected
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium">Sarah Johnson</p>
-                    <p className="text-sm text-muted-foreground">Follow-up visit</p>
+                    <p className="font-medium">Token System</p>
+                    <p className="text-sm text-muted-foreground">Daily reset enabled</p>
                   </div>
-                  <span className="text-xs bg-warning text-warning-foreground px-2 py-1 rounded-full">
-                    In Progress
+                  <span className="text-xs bg-success text-success-foreground px-2 py-1 rounded-full">
+                    Active
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium">Mike Davis</p>
-                    <p className="text-sm text-muted-foreground">Consultation</p>
+                    <p className="font-medium">Database</p>
+                    <p className="text-sm text-muted-foreground">SQLite local storage</p>
                   </div>
-                  <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">
-                    Pending
+                  <span className="text-xs bg-success text-success-foreground px-2 py-1 rounded-full">
+                    Ready
                   </span>
                 </div>
               </div>

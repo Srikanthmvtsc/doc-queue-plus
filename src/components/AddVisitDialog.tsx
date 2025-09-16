@@ -14,7 +14,7 @@ interface Patient {
   id: string;
   name: string;
   phone: string;
-  medicalHistory: string;
+  medical_history: string;
 }
 
 interface AddVisitDialogProps {

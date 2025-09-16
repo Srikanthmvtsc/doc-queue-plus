@@ -6,30 +6,45 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Stethoscope } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiService } from "@/services/api";
 
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     
-    // Hardcoded credentials
-    if (username === "admin" && password === "clinic123") {
-      localStorage.setItem("isAuthenticated", "true");
+    try {
+      const response = await apiService.login({ username, password });
+      
+      if (response.success) {
+        localStorage.setItem("isAuthenticated", "true");
+        toast({
+          title: "Login Successful",
+          description: "Welcome to the Clinic Management System",
+        });
+        navigate("/dashboard");
+      } else {
+        toast({
+          title: "Login Failed",
+          description: response.message || "Invalid username or password",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Login error:', error);
       toast({
-        title: "Login Successful",
-        description: "Welcome to the Clinic Management System",
-      });
-      navigate("/dashboard");
-    } else {
-      toast({
-        title: "Login Failed",
-        description: "Invalid username or password",
+        title: "Connection Error",
+        description: "Could not connect to server. Make sure the backend is running on localhost:3001",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -81,8 +96,8 @@ const Login = () => {
                 />
               </div>
               
-              <Button type="submit" className="w-full">
-                Sign In
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Signing In..." : "Sign In"}
               </Button>
             </form>
             

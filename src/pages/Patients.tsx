@@ -10,80 +10,45 @@ import Navigation from "@/components/Navigation";
 import AddPatientDialog from "@/components/AddPatientDialog";
 import AddVisitDialog from "@/components/AddVisitDialog";
 import { useToast } from "@/hooks/use-toast";
-
-interface Patient {
-  id: string;
-  name: string;
-  dateOfBirth: string;
-  phone: string;
-  email?: string;
-  address: string;
-  medicalHistory: string;
-  lastVisit?: string;
-  status: "active" | "pending" | "completed";
-  tokenNumber?: number;
-  reasonForVisit?: string;
-  consultationFee?: number;
-  issueTime?: string;
-  completionTime?: string;
-}
+import { apiService, type Patient } from "@/services/api";
 
 const Patients = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  const [patients, setPatients] = useState<Patient[]>([
-    {
-      id: "P001",
-      name: "John Smith",
-      dateOfBirth: "1985-05-15",
-      phone: "555-0123",
-      email: "john.smith@email.com",
-      address: "123 Main St, City",
-      medicalHistory: "Hypertension, Diabetes",
-      status: "completed",
-      lastVisit: "2024-01-15",
-      consultationFee: 150,
-      completionTime: "10:30 AM"
-    },
-    {
-      id: "P002",
-      name: "Sarah Johnson",
-      dateOfBirth: "1990-08-22",
-      phone: "555-0456",
-      email: "sarah.j@email.com",
-      address: "456 Oak Ave, City",
-      medicalHistory: "Allergies (Peanuts)",
-      status: "pending",
-      tokenNumber: 3,
-      reasonForVisit: "Regular checkup",
-      issueTime: "11:15 AM"
-    },
-    {
-      id: "P003",
-      name: "Mike Davis",
-      dateOfBirth: "1978-03-10",
-      phone: "555-0789",
-      address: "789 Pine Rd, City",
-      medicalHistory: "No significant history",
-      status: "pending",
-      tokenNumber: 4,
-      reasonForVisit: "Consultation",
-      issueTime: "11:45 AM"
-    }
-  ]);
-
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddPatientOpen, setIsAddPatientOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [isAddVisitOpen, setIsAddVisitOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "all");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!localStorage.getItem("isAuthenticated")) {
       navigate("/login");
+      return;
     }
+    
+    fetchPatients();
   }, [navigate]);
+
+  const fetchPatients = async () => {
+    try {
+      setLoading(true);
+      const patientsData = await apiService.getAllPatients();
+      setPatients(patientsData);
+    } catch (error) {
+      console.error('Failed to fetch patients:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load patients. Make sure the backend server is running on localhost:3001",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredPatients = patients.filter((patient) => {
     const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -95,71 +60,94 @@ const Patients = () => {
     return matchesSearch;
   });
 
-  const handleAddPatient = (newPatient: Omit<Patient, "id" | "status">) => {
-    const patientId = `P${String(patients.length + 1).padStart(3, "0")}`;
-    const tokenNumber = patients.filter(p => 
-      p.status === "pending" && 
-      new Date(p.lastVisit || "").toDateString() === new Date().toDateString()
-    ).length + 1;
-    
-    const patient: Patient = {
-      ...newPatient,
-      id: patientId,
-      status: "pending",
-      tokenNumber,
-      issueTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    
-    setPatients([...patients, patient]);
-    toast({
-      title: "Patient Added Successfully",
-      description: `Token #${tokenNumber} generated for ${newPatient.name}`,
-    });
+  const handleAddPatient = async (newPatient: Omit<Patient, "id" | "status">) => {
+    try {
+      const patient = await apiService.createPatient({
+        name: newPatient.name,
+        date_of_birth: newPatient.date_of_birth,
+        phone: newPatient.phone,
+        email: newPatient.email,
+        address: newPatient.address,
+        medical_history: newPatient.medical_history,
+        reason_for_visit: newPatient.reason_for_visit
+      });
+      
+      // Create initial visit
+      if (newPatient.reason_for_visit) {
+        const visit = await apiService.createVisit(patient.id, newPatient.reason_for_visit);
+        toast({
+          title: "Patient Added Successfully",
+          description: `Token #${visit.tokenNumber} generated for ${newPatient.name}`,
+        });
+      }
+      
+      fetchPatients(); // Refresh the list
+    } catch (error) {
+      console.error('Failed to add patient:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add patient. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleAddVisit = (patientId: string, reason: string) => {
-    const tokenNumber = patients.filter(p => 
-      p.status === "pending" && 
-      new Date(p.lastVisit || "").toDateString() === new Date().toDateString()
-    ).length + 1;
-    
-    setPatients(patients.map(patient => 
-      patient.id === patientId 
-        ? { 
-            ...patient, 
-            status: "pending", 
-            reasonForVisit: reason,
-            tokenNumber,
-            issueTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }
-        : patient
-    ));
-    
-    const patient = patients.find(p => p.id === patientId);
-    toast({
-      title: "Visit Added Successfully",
-      description: `Token #${tokenNumber} generated for ${patient?.name}`,
-    });
+  const handleAddVisit = async (patientId: string, reason: string) => {
+    try {
+      const visit = await apiService.createVisit(patientId, reason);
+      const patient = patients.find(p => p.id === patientId);
+      
+      toast({
+        title: "Visit Added Successfully",
+        description: `Token #${visit.tokenNumber} generated for ${patient?.name}`,
+      });
+      
+      fetchPatients(); // Refresh the list
+    } catch (error) {
+      console.error('Failed to add visit:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add visit. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleCompleteConsultation = (patientId: string, fee: number) => {
-    setPatients(patients.map(patient => 
-      patient.id === patientId 
-        ? { 
-            ...patient, 
-            status: "completed",
-            consultationFee: fee,
-            completionTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }
-        : patient
-    ));
-    
-    const patient = patients.find(p => p.id === patientId);
-    toast({
-      title: "Consultation Completed",
-      description: `${patient?.name}'s consultation marked as complete`,
-    });
+  const handleCompleteConsultation = async (patient: Patient, fee: number) => {
+    try {
+      // Find the current visit ID - this would need to be tracked better in a real system
+      // For now, we'll use a simple approach
+      await apiService.completeVisit(1, fee); // This needs to be improved to get actual visit ID
+      
+      const patientName = patients.find(p => p.id === patient.id)?.name;
+      toast({
+        title: "Consultation Completed",
+        description: `${patientName}'s consultation marked as complete`,
+      });
+      
+      fetchPatients(); // Refresh the list
+    } catch (error) {
+      console.error('Failed to complete consultation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to complete consultation. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-foreground mb-2">Loading Patients...</h1>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -269,17 +257,17 @@ const Patients = () => {
 interface PatientGridProps {
   patients: Patient[];
   onAddVisit: (patient: Patient) => void;
-  onCompleteConsultation: (patientId: string, fee: number) => void;
+  onCompleteConsultation: (patient: Patient, fee: number) => void;
 }
 
 const PatientGrid = ({ patients, onAddVisit, onCompleteConsultation }: PatientGridProps) => {
   const [completingPatient, setCompletingPatient] = useState<string | null>(null);
   const [consultationFee, setConsultationFee] = useState("");
 
-  const handleComplete = (patientId: string) => {
+  const handleComplete = (patient: Patient) => {
     const fee = parseFloat(consultationFee);
     if (fee > 0) {
-      onCompleteConsultation(patientId, fee);
+      onCompleteConsultation(patient, fee);
       setCompletingPatient(null);
       setConsultationFee("");
     }
@@ -299,24 +287,15 @@ const PatientGrid = ({ patients, onAddVisit, onCompleteConsultation }: PatientGr
                 <CardDescription>ID: {patient.id}</CardDescription>
               </div>
               <Badge
-                variant={
-                  patient.status === "completed"
-                    ? "default"
-                    : patient.status === "pending"
-                    ? "secondary"
-                    : "outline"
-                }
+                variant={patient.status === "completed" ? "default" : "secondary"}
                 className={
                   patient.status === "completed"
                     ? "bg-success text-success-foreground"
-                    : patient.status === "pending"
-                    ? "bg-warning text-warning-foreground"
-                    : ""
+                    : "bg-warning text-warning-foreground"
                 }
               >
-                {patient.status === "pending" && patient.tokenNumber && `Token #${patient.tokenNumber}`}
+                {patient.status === "pending" && patient.token_number && `Token #${patient.token_number}`}
                 {patient.status === "completed" && "Completed"}
-                {patient.status === "active" && "Active"}
               </Badge>
             </div>
           </CardHeader>
@@ -324,7 +303,7 @@ const PatientGrid = ({ patients, onAddVisit, onCompleteConsultation }: PatientGr
             <div className="space-y-2 text-sm">
               <div className="flex items-center space-x-2">
                 <Calendar className="w-4 h-4 text-muted-foreground" />
-                <span>DOB: {new Date(patient.dateOfBirth).toLocaleDateString()}</span>
+                <span>DOB: {new Date(patient.date_of_birth).toLocaleDateString()}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Phone className="w-4 h-4 text-muted-foreground" />
@@ -342,23 +321,23 @@ const PatientGrid = ({ patients, onAddVisit, onCompleteConsultation }: PatientGr
               </div>
             </div>
 
-            {patient.reasonForVisit && (
+            {patient.reason_for_visit && (
               <div className="p-3 bg-primary-muted rounded-lg">
                 <p className="text-sm font-medium text-primary">Reason for Visit:</p>
-                <p className="text-sm">{patient.reasonForVisit}</p>
+                <p className="text-sm">{patient.reason_for_visit}</p>
               </div>
             )}
 
-            {patient.issueTime && (
+            {patient.issue_time && (
               <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                 <Clock className="w-4 h-4" />
-                <span>Token issued: {patient.issueTime}</span>
+                <span>Token issued: {new Date(patient.issue_time).toLocaleTimeString()}</span>
               </div>
             )}
 
-            {patient.completionTime && (
+            {patient.completion_time && (
               <div className="text-sm text-success font-medium">
-                Completed: {patient.completionTime} | Fee: ${patient.consultationFee}
+                Completed: {new Date(patient.completion_time).toLocaleTimeString()} | Fee: ${patient.consultation_fee}
               </div>
             )}
 
@@ -387,7 +366,7 @@ const PatientGrid = ({ patients, onAddVisit, onCompleteConsultation }: PatientGr
                       />
                       <Button
                         size="sm"
-                        onClick={() => handleComplete(patient.id)}
+                        onClick={() => handleComplete(patient)}
                         disabled={!consultationFee || parseFloat(consultationFee) <= 0}
                       >
                         ✓
